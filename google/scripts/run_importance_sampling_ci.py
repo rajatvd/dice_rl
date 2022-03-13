@@ -36,7 +36,7 @@ from dice_rl.google.estimators.importance_sampling_ci import ImportanceSamplingC
 import dice_rl.utils.common as common_utils
 from dice_rl.data.dataset import Dataset, EnvStep, StepType
 from dice_rl.data.tf_offpolicy_dataset import TFOffpolicyDataset
-import google3.learning.deepmind.xmanager2.client.google as xm  # pylint: disable=unused-import
+# import google3.learning.deepmind.xmanager2.client.google as xm  # pylint: disable=unused-import
 
 FLAGS = flags.FLAGS
 
