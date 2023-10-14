@@ -44,3 +44,7 @@ To recover GenDICE, append the following to the above python command:
 The configuration below generally works the best:
 
     --primal_regularizer=0. --dual_regularizer=1. --zero_reward=0 --norm_regularizer=1. --zeta_pos=1
+
+## Baselines
+
+	python google/scripts/run_neural_q.py --save_dir=./tests/testdata --load_dir=./tests/testdata --env_name=contextual_bandit6 --num_trajectory=400 --max_trajectory_length=250 --alpha=0.0 --tabular_obs=0 --gamma 0.99

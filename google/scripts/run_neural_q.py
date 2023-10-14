@@ -22,6 +22,7 @@ from absl import flags
 import numpy as np
 import os
 import tensorflow.compat.v2 as tf
+
 tf.compat.v1.enable_v2_behavior()
 import pickle
 
@@ -42,89 +43,106 @@ from dice_rl.data.perturbed_dataset import PerturbedDataset
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('env_name', 'grid', 'Environment name.')
-flags.DEFINE_integer('seed', 0, 'Initial random seed.')
-flags.DEFINE_integer('num_trajectory', 100,
-                     'Number of trajectories to collect.')
-flags.DEFINE_integer('max_trajectory_length', 100,
-                     'Cutoff trajectory at this step.')
-flags.DEFINE_float('alpha', 0.0,
-                   'How close to target policy.')
-flags.DEFINE_bool('tabular_obs', False,
-                  'Whether to use tabular observations.')
-flags.DEFINE_string('load_dir', '/cns/vz-d/home/brain-ofirnachum',
-                    'Directory to load dataset from.')
-flags.DEFINE_float('gamma', 0.995,
-                   'Discount factor.')
-flags.DEFINE_float('learning_rate', 0.001, 'Learning rate.')
-flags.DEFINE_integer('nstep_returns', 1,
-                     'Use n-step returns with this many steps.')
-flags.DEFINE_integer('num_steps', 100000, 'Number of training steps.')
-flags.DEFINE_integer('batch_size', 128, 'Batch size.')
+flags.DEFINE_string("env_name", "grid", "Environment name.")
+flags.DEFINE_integer("seed", 0, "Initial random seed.")
+flags.DEFINE_integer("num_trajectory", 100, "Number of trajectories to collect.")
+flags.DEFINE_integer("max_trajectory_length", 100, "Cutoff trajectory at this step.")
+flags.DEFINE_float("alpha", 0.0, "How close to target policy.")
+flags.DEFINE_bool("tabular_obs", False, "Whether to use tabular observations.")
+flags.DEFINE_string(
+    "load_dir", "/cns/vz-d/home/brain-ofirnachum", "Directory to load dataset from."
+)
+flags.DEFINE_float("gamma", 0.995, "Discount factor.")
+flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
+flags.DEFINE_integer("nstep_returns", 1, "Use n-step returns with this many steps.")
+flags.DEFINE_integer("num_steps", 100000, "Number of training steps.")
+flags.DEFINE_integer("batch_size", 128, "Batch size.")
+flags.DEFINE_string(
+    "save_dir", None, "Directory to save the model and estimation results."
+)
 
 
 def main(argv):
-  env_name = FLAGS.env_name
-  seed = FLAGS.seed
-  tabular_obs = FLAGS.tabular_obs
-  num_trajectory = FLAGS.num_trajectory
-  max_trajectory_length = FLAGS.max_trajectory_length
-  alpha = FLAGS.alpha
-  load_dir = FLAGS.load_dir
-  gamma = FLAGS.gamma
-  assert 0 <= gamma < 1.
-  learning_rate = FLAGS.learning_rate
-  nstep_returns = FLAGS.nstep_returns
-  num_steps = FLAGS.num_steps
-  batch_size = FLAGS.batch_size
+    env_name = FLAGS.env_name
+    seed = FLAGS.seed
+    tabular_obs = FLAGS.tabular_obs
+    num_trajectory = FLAGS.num_trajectory
+    max_trajectory_length = FLAGS.max_trajectory_length
+    alpha = FLAGS.alpha
+    load_dir = FLAGS.load_dir
+    save_dir = FLAGS.save_dir
+    gamma = FLAGS.gamma
+    assert 0 <= gamma < 1.0
+    learning_rate = FLAGS.learning_rate
+    nstep_returns = FLAGS.nstep_returns
+    num_steps = FLAGS.num_steps
+    batch_size = FLAGS.batch_size
 
-  target_policy = get_target_policy(load_dir, env_name, tabular_obs)
+    target_policy = get_target_policy(load_dir, env_name, tabular_obs)
 
-  hparam_str = ('{ENV_NAME}_tabular{TAB}_alpha{ALPHA}_seed{SEED}_'
-                'numtraj{NUM_TRAJ}_maxtraj{MAX_TRAJ}').format(
-                    ENV_NAME=env_name,
-                    TAB=tabular_obs,
-                    ALPHA=alpha,
-                    SEED=seed,
-                    NUM_TRAJ=num_trajectory,
-                    MAX_TRAJ=max_trajectory_length)
-  directory = os.path.join(load_dir, hparam_str)
-  print('Loading dataset.')
-  dataset = Dataset.load(directory)
-  all_steps = dataset.get_all_steps()
-  max_reward = tf.reduce_max(all_steps.reward)
-  min_reward = tf.reduce_min(all_steps.reward)
-  print('num loaded steps', dataset.num_steps)
-  print('num loaded total steps', dataset.num_total_steps)
-  print('num loaded episodes', dataset.num_episodes)
-  print('num loaded total episodes', dataset.num_total_episodes)
-  print('min reward', min_reward, 'max reward', max_reward)
+    hparam_str = (
+        "{ENV_NAME}_tabular{TAB}_alpha{ALPHA}_seed{SEED}_"
+        "numtraj{NUM_TRAJ}_maxtraj{MAX_TRAJ}"
+    ).format(
+        ENV_NAME=env_name,
+        TAB=tabular_obs,
+        ALPHA=alpha,
+        SEED=seed,
+        NUM_TRAJ=num_trajectory,
+        MAX_TRAJ=max_trajectory_length,
+    )
+    directory = os.path.join(load_dir, hparam_str)
+    print("Loading dataset.")
+    dataset = Dataset.load(directory)
+    all_steps = dataset.get_all_steps()
+    max_reward = tf.reduce_max(all_steps.reward)
+    min_reward = tf.reduce_min(all_steps.reward)
+    print("num loaded steps", dataset.num_steps)
+    print("num loaded total steps", dataset.num_total_steps)
+    print("num loaded episodes", dataset.num_episodes)
+    print("num loaded total episodes", dataset.num_total_episodes)
+    print("min reward", min_reward, "max reward", max_reward)
 
-  estimate = estimator_lib.get_fullbatch_average(dataset, gamma=gamma)
-  print('data per step avg', estimate)
-  dataset = PerturbedDataset(dataset,
-                             num_perturbations=10,
-                             perturbation_scale=1.)
-  #estimate = estimator_lib.get_fullbatch_average(dataset, gamma=gamma)
-  #print('perturbed data per step avg', estimate)
+    estimate = estimator_lib.get_fullbatch_average(dataset, gamma=gamma)
+    print("data per step avg", estimate)
+    dataset = PerturbedDataset(dataset, num_perturbations=10, perturbation_scale=1.0)
+    # estimate = estimator_lib.get_fullbatch_average(dataset, gamma=gamma)
+    # print('perturbed data per step avg', estimate)
 
-  value_network = ValueNetwork((dataset.spec.observation, dataset.spec.action),
-                               fc_layer_params=(64, 64),
-                               output_dim=10)
-  optimizer = tf.keras.optimizers.Adam(learning_rate)
+    value_network = ValueNetwork(
+        (dataset.spec.observation, dataset.spec.action),
+        fc_layer_params=(64, 64),
+        output_dim=10,
+    )
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
 
-  estimator = NeuralQLearning(dataset.spec, value_network, optimizer, gamma,
-                              num_qvalues=10)
-  for step in range(num_steps):
-    batch = dataset.get_step(batch_size, num_steps=nstep_returns + 1)
-    loss, _ = estimator.train_step(batch, target_policy)
-    if step % 100 == 0 or step == num_steps - 1:
-      print('step', step, 'loss', loss)
-      estimate = estimator.estimate_average_reward(dataset, target_policy)
-      print('estimated per step avg', estimate)
+    estimator = NeuralQLearning(
+        dataset.spec, value_network, optimizer, gamma, num_qvalues=10
+    )
+    losses = []
+    estimates = []
+    steps = []
+    for step in range(num_steps):
+        batch = dataset.get_step(batch_size, num_steps=nstep_returns + 1)
+        loss, _ = estimator.train_step(batch, target_policy)
+        if step % 500 == 0 or step == num_steps - 1:
+            print("step", step, "loss", loss)
+            estimate = estimator.estimate_average_reward(dataset, target_policy)
+            losses.append(loss)
+            estimates.append(estimate)
+            steps.append(step)
+            print("estimated per step avg", estimate, type(estimate))
 
-  print('Done!')
+    output_path = os.path.join(directory, f"neural_q_outputs_{hparam_str}.npz")
+    np.savez(
+        output_path,
+        steps=np.array(steps),
+        losses=np.array(losses),
+        estimates=np.array(estimates),
+    )
+    print("Done!")
 
 
-if __name__ == '__main__':
-  app.run(main)
+if __name__ == "__main__":
+    app.run(main)
+m
